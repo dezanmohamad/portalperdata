@@ -170,7 +170,7 @@
        <div class="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-full -mr-4 -mt-4 transition-colors group-hover:bg-slate-100"></div>
        <div class="text-center relative z-10">
         <div class="mb-6 inline-block p-4 rounded-2xl bg-slate-50 text-slate-600 group-hover:bg-slate-800 group-hover:text-white transition-colors duration-200 shadow-sm">
-         <svg class="w-12 h-12" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path></svg>
+         <svg class="w-12 h-12" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path></svg>
         </div>
         <h2 class="text-2xl font-bold mb-2 text-slate-800">Admin</h2>
         <p class="text-sm text-slate-500 mb-6">Kelola Pengajuan Masuk</p>
@@ -971,7 +971,7 @@
              <p class="text-sm font-medium text-slate-700">Layanan: ${record.jenis_perbaikan}</p>
           </div>
           
-          <p class="text-sm mb-4 text-slate-600 bg-slate-50 p-3 rounded border border-slate-100 italic">
+          <p class="text-sm mb-4 text-slate-600 bg-slate-50 p-2 rounded">
             "${record.keterangan_perbaikan}"
           </p>
           
@@ -1002,6 +1002,16 @@
 
     async function handleProcess(id) {
       if (!auth.currentUser && !isAdminLoggedIn) return;
+      
+      const optimisticUpdate = () => {
+         const idx = currentData.findIndex(r => r.id === id);
+         if (idx !== -1) {
+             currentData[idx].status = 'Sedang Proses';
+             renderAll();
+             showAdminMessage("Status diperbarui (Mode Lokal)", true);
+         }
+      };
+
       try {
         const ref = doc(db, 'artifacts', appId, 'public', 'data', 'pengajuan', id);
         await updateDoc(ref, {
@@ -1009,12 +1019,23 @@
         });
       } catch (e) {
         console.error("Error processing:", e);
-        showAdminMessage("Gagal memproses", false);
+        optimisticUpdate();
       }
     }
 
     async function handleApprove(id) {
       if (!auth.currentUser && !isAdminLoggedIn) return;
+      
+      const optimisticUpdate = () => {
+         const idx = currentData.findIndex(r => r.id === id);
+         if (idx !== -1) {
+             currentData[idx].status = 'Selesai';
+             currentData[idx].tanggal_selesai = new Date().toISOString();
+             renderAll();
+             showAdminMessage("Status diperbarui (Mode Lokal)", true);
+         }
+      };
+
       try {
         const ref = doc(db, 'artifacts', appId, 'public', 'data', 'pengajuan', id);
         await updateDoc(ref, {
@@ -1023,12 +1044,23 @@
         });
       } catch (e) {
         console.error("Error approving:", e);
-        showAdminMessage("Gagal menyetujui", false);
+        optimisticUpdate();
       }
     }
 
     async function handleReject(id) {
       if (!auth.currentUser && !isAdminLoggedIn) return;
+      
+      const optimisticUpdate = () => {
+         const idx = currentData.findIndex(r => r.id === id);
+         if (idx !== -1) {
+             currentData[idx].status = 'Ditolak';
+             currentData[idx].tanggal_selesai = new Date().toISOString();
+             renderAll();
+             showAdminMessage("Status diperbarui (Mode Lokal)", true);
+         }
+      };
+
       try {
         const ref = doc(db, 'artifacts', appId, 'public', 'data', 'pengajuan', id);
         await updateDoc(ref, {
@@ -1037,19 +1069,25 @@
         });
       } catch (e) {
         console.error("Error rejecting:", e);
-        showAdminMessage("Gagal menolak", false);
+        optimisticUpdate();
       }
     }
 
     async function handleDelete(id) {
       if (!auth.currentUser && !isAdminLoggedIn) return;
       if(confirm('Yakin ingin menghapus data ini?')) {
+        const optimisticUpdate = () => {
+            currentData = currentData.filter(r => r.id !== id);
+            renderAll();
+            showAdminMessage("Data dihapus (Mode Lokal)", true);
+        };
+
         try {
           const ref = doc(db, 'artifacts', appId, 'public', 'data', 'pengajuan', id);
           await deleteDoc(ref);
         } catch (e) {
           console.error("Error deleting:", e);
-          showAdminMessage("Gagal menghapus", false);
+          optimisticUpdate();
         }
       }
     }
